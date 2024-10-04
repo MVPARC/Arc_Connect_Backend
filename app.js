@@ -11,6 +11,7 @@ const campaignRoutes = require("./routes/campaignRoutes");
 const emailTemplateRoutes = require("./routes/emailTemplateRoute");
 const reportRoutes = require("./routes/reportRoute");
 const trackingRoutes = require("./routes/trackingRoute");
+const emailRoutes = require("./routes/emailRoutes");
 
 app.use(cors());
 app.use(cookieParser());
@@ -29,7 +30,7 @@ app.use("/api/campaigns", campaignRoutes);
 app.use("/api/email-templates", emailTemplateRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/tracking", trackingRoutes);
-
+app.use("/api/emails", emailRoutes);
 // 404 handler
 app.use((req, res) => {
   res.status(404).send("Sorry, that route doesn't exist.");
@@ -44,15 +45,13 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     await dbConnect();
-    if (process.env.NODE_ENV !== "production") {
-      const PORT = process.env.PORT || 3000;
-      app.listen(PORT, () => {
-        console.log(`Your server is running on port: ${PORT}`);
-      });
-    }
+    const PORT = process.env.PORT || 8081;
+    app.listen(PORT, () => {
+      console.log(`Your server is running on port: ${PORT}`);
+    });
   } catch (error) {
     console.error("Failed to connect to the database", error);
-    process.exit(1); // Exit the process with an error code
+    process.exit(1);
   }
 };
 

@@ -8,22 +8,14 @@ const EMAIL_PORT = 587;
 const EMAIL_USER = process.env.MAIL_USER;
 const EMAIL_PASS = process.env.MAIL_PASS;
 
-const transporter = nodemailer.createTransport({
-  host: EMAIL_HOST,
-  port: EMAIL_PORT,
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS,
-  },
-});
-
 exports.sendEmail = async (
+  senderEmail,
   to,
   subject,
   htmlContent,
   recipientData,
-  campaignId
+  campaignId,
+  senderPassword // Accept password
 ) => {
   const { name, id: recipientId } = recipientData;
 
@@ -33,11 +25,22 @@ exports.sendEmail = async (
   personalizedContent += trackingPixel;
 
   const mailOptions = {
-    from: EMAIL_USER,
+    from: senderEmail,
     to,
     subject,
     html: personalizedContent,
   };
+
+  // Create a transporter with dynamic credentials
+  const transporter = nodemailer.createTransport({
+    host: EMAIL_HOST,
+    port: 587,
+    secure: false,
+    auth: {
+      user: senderEmail,
+      pass: senderPassword,
+    },
+  });
 
   try {
     const info = await transporter.sendMail(mailOptions);
