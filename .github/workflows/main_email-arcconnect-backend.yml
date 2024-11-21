@@ -11,21 +11,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-          
-      - name: npm install, build, and test
+
+      - name: npm install and build
         run: |
           npm install
           npm run build --if-present
-          # Removed npm test since it was causing failures
-          
+          # Removed the test command since it was failing
+
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
-        
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -38,13 +38,13 @@ jobs:
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
+    
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          
+
       - name: Unzip artifact for deployment
         run: unzip release.zip
       
