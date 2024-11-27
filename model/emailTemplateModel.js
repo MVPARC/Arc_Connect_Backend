@@ -1,4 +1,3 @@
-// src/models/emailTemplate.model.js
 const mongoose = require("mongoose");
 
 const emailTemplateSchema = new mongoose.Schema({
@@ -9,6 +8,9 @@ const emailTemplateSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true,
+  },
+  htmlStructure: {
+    type: Object,
   },
   createdAt: {
     type: Date,

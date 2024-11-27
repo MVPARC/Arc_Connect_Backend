@@ -10,10 +10,25 @@ exports.getAllTemplates = async (req, res) => {
   }
 };
 
+// exports.createTemplate = async (req, res) => {
+//   const template = new EmailTemplate({
+//     name: req.body.name,
+//     content: req.body.content,
+//   });
+
+//   try {
+//     const newTemplate = await template.save();
+//     res.status(201).json(newTemplate);
+//   } catch (err) {
+//     res.status(400).json({ message: err.message });
+//   }
+// };
+
 exports.createTemplate = async (req, res) => {
   const template = new EmailTemplate({
     name: req.body.name,
     content: req.body.content,
+    htmlStructure: req.body.htmlStructure,
   });
 
   try {
