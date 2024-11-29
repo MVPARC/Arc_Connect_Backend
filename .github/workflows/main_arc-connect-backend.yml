@@ -8,23 +8,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  cleanup:
+  cleanup-artifacts:
     runs-on: ubuntu-latest
-    permissions:
-      actions: write    # Required for deleting workflow runs
-      contents: read    # Required for accessing repository
     steps:
-      - name: Delete old workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+      - name: Remove old artifacts
+        uses: c-hive/gha-remove-artifacts@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          retain_days: 1
-          keep_minimum_runs: 3
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          age: '0 days'
+          skip-recent: 1
 
   build:
     runs-on: ubuntu-latest
-    needs: cleanup
+    needs: cleanup-artifacts
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node.js version
