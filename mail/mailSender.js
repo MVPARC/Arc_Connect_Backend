@@ -21,7 +21,7 @@ exports.sendEmail = async (
 
   let personalizedContent = htmlContent.replace(/\${NAME}/g, name);
 
-  const trackingPixel = `<img src="${process.env.API_URL}/api/tracking/${campaignId}/${recipientId}" width="1" height="1" />`;
+  const trackingPixel = `<img src="https://arconnect.mvparc.com/api/tracking/${campaignId}/${recipientId}" width="1" height="1" />`;
   personalizedContent += trackingPixel;
 
   const mailOptions = {
