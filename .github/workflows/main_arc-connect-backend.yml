@@ -12,25 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
-      packages: read
+      contents: write
     steps:
-      - name: Install GitHub CLI
+      - name: Cleanup Artifacts
         run: |
-          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-          && sudo apt update \
-          && sudo apt install gh -y
-      
-      - name: Clean up artifacts
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api repos/${{ github.repository }}/actions/artifacts | jq -r '.artifacts[] | .id' | while read id; do
-            gh api -X DELETE repos/${{ github.repository }}/actions/artifacts/$id
-          done
+          # Get repository artifacts using GitHub API
+          REPO="${{ github.repository }}"
+          echo "Cleaning up artifacts for $REPO"
+          
+          # List all artifacts and delete them
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/$REPO/actions/artifacts" | \
+            jq '.artifacts[] | .id' | \
+            while read id; do
+              echo "Deleting artifact $id"
+              curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/$REPO/actions/artifacts/$id"
+              sleep 1
+            done
 
   build:
     runs-on: ubuntu-latest
