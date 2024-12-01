@@ -13,6 +13,7 @@ const reportRoutes = require("./routes/reportRoute");
 const trackingRoutes = require("./routes/trackingRoute");
 const emailRoutes = require("./routes/emailRoutes");
 const authRoutes = require("./routes/authRoute");
+const recipientRoutes = require("./routes/recipientRoutes");
 
 app.use(cors());
 app.use(cookieParser());
@@ -34,6 +35,8 @@ app.use("/api/email-templates", emailTemplateRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/tracking", trackingRoutes);
 app.use("/api/emails", emailRoutes);
+app.use("/api/recipients", recipientRoutes); // Add this line
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).send("Sorry, that route doesn't exist.");

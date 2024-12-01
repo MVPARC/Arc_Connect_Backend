@@ -73,9 +73,9 @@
 // });
 
 // module.exports = mongoose.model("Campaign", campaignSchema);
+// models/campaignModel.js
 const mongoose = require("mongoose");
 
-// Define recipient schema
 const recipientSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -117,13 +117,14 @@ const campaignSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Email",
   },
-  // Add user reference
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-    index: true,
-  },
+  // Add recipient lists reference
+  recipientLists: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RecipientList",
+    },
+  ],
+  // Keep existing recipients array for direct recipients
   recipients: [recipientSchema],
   progress: {
     successCount: { type: Number, default: 0 },
@@ -137,6 +138,12 @@ const campaignSchema = new mongoose.Schema({
   completedAt: {
     type: Date,
   },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -147,13 +154,15 @@ const campaignSchema = new mongoose.Schema({
   },
 });
 
-// Update the updatedAt timestamp before saving
+// Update timestamp before saving
 campaignSchema.pre("save", function (next) {
   this.updatedAt = new Date();
   next();
 });
 
-// Add compound index for efficient querying
+// Add indexes for better query performance
 campaignSchema.index({ user: 1, createdAt: -1 });
+campaignSchema.index({ user: 1, status: 1 });
+campaignSchema.index({ status: 1, scheduledDate: 1 });
 
 module.exports = mongoose.model("Campaign", campaignSchema);
