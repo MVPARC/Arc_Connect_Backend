@@ -10,8 +10,8 @@ const { validationResult } = require("express-validator");
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   },
 });
 
@@ -23,7 +23,7 @@ const generateOTP = () => {
 // Send OTP email
 const sendOTPEmail = async (email, otp) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: process.env.MAIL_USER,
     to: email,
     subject: "Email Verification OTP",
     html: `
