@@ -12,10 +12,19 @@ const emailTemplateSchema = new mongoose.Schema({
   htmlStructure: {
     type: Object,
   },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
+
+// Add compound index for efficient querying
+emailTemplateSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model("EmailTemplate", emailTemplateSchema);

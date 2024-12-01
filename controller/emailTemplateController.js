@@ -1,19 +1,34 @@
-// src/controllers/emailTemplate.controller.js
-const EmailTemplate = require("../model/emailTemplateModel");
+// // src/controllers/emailTemplate.controller.js
+// const EmailTemplate = require("../model/emailTemplateModel");
 
-exports.getAllTemplates = async (req, res) => {
-  try {
-    const templates = await EmailTemplate.find();
-    res.json(templates);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// exports.getAllTemplates = async (req, res) => {
+//   try {
+//     const templates = await EmailTemplate.find();
+//     res.json(templates);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+// // exports.createTemplate = async (req, res) => {
+// //   const template = new EmailTemplate({
+// //     name: req.body.name,
+// //     content: req.body.content,
+// //   });
+
+// //   try {
+// //     const newTemplate = await template.save();
+// //     res.status(201).json(newTemplate);
+// //   } catch (err) {
+// //     res.status(400).json({ message: err.message });
+// //   }
+// // };
 
 // exports.createTemplate = async (req, res) => {
 //   const template = new EmailTemplate({
 //     name: req.body.name,
 //     content: req.body.content,
+//     htmlStructure: req.body.htmlStructure,
 //   });
 
 //   try {
@@ -24,11 +39,68 @@ exports.getAllTemplates = async (req, res) => {
 //   }
 // };
 
+// exports.getTemplate = async (req, res) => {
+//   res.json(res.template);
+// };
+
+// exports.updateTemplate = async (req, res) => {
+//   if (req.body.name != null) {
+//     res.template.name = req.body.name;
+//   }
+//   if (req.body.content != null) {
+//     res.template.content = req.body.content;
+//   }
+
+//   try {
+//     const updatedTemplate = await res.template.save();
+//     res.json(updatedTemplate);
+//   } catch (err) {
+//     res.status(400).json({ message: err.message });
+//   }
+// };
+
+// exports.deleteTemplate = async (req, res) => {
+//   try {
+//     await res.template.remove();
+//     res.json({ message: "Template deleted" });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+// exports.getTemplateMiddleware = async (req, res, next) => {
+//   let template;
+//   try {
+//     template = await EmailTemplate.findById(req.params.id);
+//     if (template == null) {
+//       return res.status(404).json({ message: "Cannot find template" });
+//     }
+//   } catch (err) {
+//     return res.status(500).json({ message: err.message });
+//   }
+
+//   res.template = template;
+//   next();
+// };
+
+// src/controllers/emailTemplate.controller.js
+const EmailTemplate = require("../model/emailTemplateModel");
+
+exports.getAllTemplates = async (req, res) => {
+  try {
+    const templates = await EmailTemplate.find({ user: req.user._id });
+    res.json(templates);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.createTemplate = async (req, res) => {
   const template = new EmailTemplate({
     name: req.body.name,
     content: req.body.content,
     htmlStructure: req.body.htmlStructure,
+    user: req.user._id, // Add user reference
   });
 
   try {
@@ -44,15 +116,27 @@ exports.getTemplate = async (req, res) => {
 };
 
 exports.updateTemplate = async (req, res) => {
-  if (req.body.name != null) {
-    res.template.name = req.body.name;
-  }
-  if (req.body.content != null) {
-    res.template.content = req.body.content;
-  }
-
   try {
-    const updatedTemplate = await res.template.save();
+    const template = await EmailTemplate.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    if (req.body.name != null) {
+      template.name = req.body.name;
+    }
+    if (req.body.content != null) {
+      template.content = req.body.content;
+    }
+    if (req.body.htmlStructure != null) {
+      template.htmlStructure = req.body.htmlStructure;
+    }
+
+    const updatedTemplate = await template.save();
     res.json(updatedTemplate);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -61,7 +145,16 @@ exports.updateTemplate = async (req, res) => {
 
 exports.deleteTemplate = async (req, res) => {
   try {
-    await res.template.remove();
+    const template = await EmailTemplate.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+
+    await template.remove();
     res.json({ message: "Template deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -69,16 +162,21 @@ exports.deleteTemplate = async (req, res) => {
 };
 
 exports.getTemplateMiddleware = async (req, res, next) => {
-  let template;
   try {
-    template = await EmailTemplate.findById(req.params.id);
-    if (template == null) {
-      return res.status(404).json({ message: "Cannot find template" });
+    const template = await EmailTemplate.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
     }
+
+    res.template = template;
+    next();
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
-
-  res.template = template;
-  next();
 };
+
+module.exports = exports;

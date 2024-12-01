@@ -12,6 +12,7 @@ const emailTemplateRoutes = require("./routes/emailTemplateRoute");
 const reportRoutes = require("./routes/reportRoute");
 const trackingRoutes = require("./routes/trackingRoute");
 const emailRoutes = require("./routes/emailRoutes");
+const authRoutes = require("./routes/authRoute");
 
 app.use(cors());
 app.use(cookieParser());
@@ -26,6 +27,8 @@ app.use(
 );
 
 // Use routes
+
+app.use("/api/auth", authRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/email-templates", emailTemplateRoutes);
 app.use("/api/reports", reportRoutes);

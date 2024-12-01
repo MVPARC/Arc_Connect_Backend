@@ -1,61 +1,44 @@
-require("dotenv").config();
+// middleware/auth.js
 const jwt = require("jsonwebtoken");
+const User = require("../model/userModel");
 
-//auth
-
-exports.Auth = async (req, res, next) => {
+const auth = async (req, res, next) => {
   try {
-    let token = req.cookies.token || req.body.token || "";
-    // If the token is provided in the Authorization header, override the other sources
-
-    console.log(token, "token");
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
-      token = req.headers.authorization.replace("Bearer ", "");
+    // Check for authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Authorization required" });
     }
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token not found",
-      });
+    // Extract token from header
+    const token = authHeader.split(" ")[1];
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Find user and exclude password from response
+    const user = await User.findById(decoded.userId).select("-password");
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
     }
 
-    try {
-      const decode = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decode;
-      console.log(decode, "data");
-      next();
-    } catch (error) {
-      return res.status(403).json({
-        success: false,
-        message: "Token is invalid",
-      });
+    // Check if user is verified
+    if (!user.isVerified) {
+      return res.status(401).json({ error: "Email not verified" });
     }
-  } catch (error) {
-    return res.status(405).json({
-      success: false,
-      message: "Token verification failed",
-      data: error.message,
-    });
-  }
-};
 
-exports.isAdmin = async (req, res, next) => {
-  try {
-    if (req.user.role != "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Unauthorized access",
-      });
-    }
+    // Attach user to request object
+    req.user = user;
     next();
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "error in admin route",
-    });
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Token expired" });
+    }
+    res.status(500).json({ error: "Authentication failed" });
   }
 };
+
+module.exports = auth;
