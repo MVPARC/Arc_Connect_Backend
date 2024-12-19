@@ -14,7 +14,6 @@ const upload = multer({
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
     process.env.AZURE_STORAGE_CONNECTION_STRING
-  // AZURE_STORAGE_CONNECTION_STRING
 );
 const containerName = "template-images";
 
