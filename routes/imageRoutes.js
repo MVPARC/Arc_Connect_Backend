@@ -11,12 +11,10 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
 });
-const AZURE_STORAGE_CONNECTION_STRING =
-  "DefaultEndpointsProtocol=https;AccountName=arcconnectbackend;AccountKey=VMRiQmHWcQCxUf5bVvwY0zFBGEzQBDsZ8Kh7f6+IxrJ5WSJt3K5q6fUltLY+OdnHW3cY78mMM2Sy+AStcV8Dlw==;EndpointSuffix=core.windows.net";
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
-  //   process.env.AZURE_STORAGE_CONNECTION_STRING
-  AZURE_STORAGE_CONNECTION_STRING
+    process.env.AZURE_STORAGE_CONNECTION_STRING
+  // AZURE_STORAGE_CONNECTION_STRING
 );
 const containerName = "template-images";
 
