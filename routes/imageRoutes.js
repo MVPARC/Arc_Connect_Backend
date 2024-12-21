@@ -13,7 +13,7 @@ const upload = multer({
 });
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
-    process.env.AZURE_STORAGE_CONNECTION_STRING
+  process.env.AZURE_STORAGE_CONNECTION_STRING
 );
 const containerName = "template-images";
 
@@ -53,7 +53,7 @@ router.post("/upload", upload.single("image"), async (req, res) => {
 // Upload multiple images
 router.post(
   "/upload-multiple",
-  auth,
+  // auth,
   upload.array("images", 5),
   async (req, res) => {
     try {
