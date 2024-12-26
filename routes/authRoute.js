@@ -30,6 +30,12 @@ const loginValidation = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
+const resetPasswordValidation = [
+  body("newPassword")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters long"),
+];
+
 // Auth routes
 router.post("/register", registerValidation, authController.register);
 router.post("/login", loginValidation, authController.login);
@@ -44,5 +50,16 @@ router.get(
 );
 
 router.get("/users", auth, checkRole(["admin"]), authController.getAllUsers);
+router.post(
+  "/forgot-password",
+  body("email").isEmail().withMessage("Valid email is required"),
+  authController.forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  resetPasswordValidation,
+  authController.resetPassword
+);
 
 module.exports = router;

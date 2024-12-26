@@ -53,6 +53,42 @@ const generateToken = (user) => {
   );
 };
 
+const generatePasswordResetToken = (email) => {
+  const resetCode = crypto.randomBytes(32).toString("hex"); // Add crypto import at top
+  return {
+    token: jwt.sign(
+      {
+        email,
+        resetCode,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    ),
+    resetCode, // We'll store this in the database
+  };
+};
+
+const sendPasswordResetEmail = async (email, resetToken) => {
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+  const mailOptions = {
+    from: process.env.MAIL_USER,
+    to: email,
+    subject: "Password Reset Request",
+    html: `
+      <h1>Password Reset Request</h1>
+      <p>Click the link below to reset your password:</p>
+      <a href="${resetLink}">Reset Password</a>
+      <p>This link will expire in 1 hour.</p>
+      <p>If you didn't request this, please ignore this email.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
 const authController = {
   // Register new user
   register: async (req, res) => {
@@ -237,6 +273,78 @@ const authController = {
     }
   },
 
+  forgotPassword: async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      // Check if user exists
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Generate reset token with email in payload
+      const { token, resetCode } = generatePasswordResetToken(email);
+
+      // Save reset code to user
+      user.resetPasswordToken = resetCode; // Store the code, not the full JWT
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // Send password reset email
+      await sendPasswordResetEmail(email, token);
+
+      res.json({ message: "Password reset instructions sent to your email" });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to process forgot password request" });
+    }
+  },
+
+  // And update the resetPassword controller to verify the JWT:
+  resetPassword: async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+
+      // Verify and decode the JWT
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const { email, resetCode } = decoded;
+
+      // Find user with valid reset token
+      const user = await User.findOne({
+        email,
+        resetPasswordToken: resetCode,
+        resetPasswordExpires: { $gt: Date.now() },
+      });
+
+      if (!user) {
+        return res
+          .status(400)
+          .json({ error: "Invalid or expired reset token" });
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update user's password and clear reset token fields
+      user.password = hashedPassword;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      res.json({ message: "Password reset successful" });
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        return res
+          .status(400)
+          .json({ error: "Invalid or expired reset token" });
+      }
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  },
   // Add to authController.js
   getAllUsers: async (req, res) => {
     try {
