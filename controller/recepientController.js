@@ -6,14 +6,14 @@ exports.createList = async (req, res) => {
     const { listName, recipients, tags, description } = req.body;
 
     // Validate recipients array
-    if (!Array.isArray(recipients) || recipients.length === 0) {
+    if (!Array.isArray(recipients)) {
       return res.status(400).json({ message: "Recipients array is required" });
     }
 
     // Create new recipient list
     const recipientList = new RecipientList({
       listName,
-      recipients,
+      recipients: recipients || [],
       tags: tags || [],
       description,
       user: req.user._id,
