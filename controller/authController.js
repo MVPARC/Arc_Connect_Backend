@@ -256,22 +256,82 @@ const authController = {
   },
 
   // Get user profile
-  getProfile: async (req, res) => {
-    try {
-      res.json({
-        user: {
-          id: req.user._id,
-          name: req.user.name,
-          username: req.user.username,
-          email: req.user.email,
-          role: req.user.role,
-        },
-      });
-    } catch (error) {
-      console.error("Profile error:", error);
-      res.status(500).json({ error: "Failed to get profile" });
-    }
-  },
+
+  // Get user profile with subscription details
+getProfile: async (req, res) => {
+  try {
+    const user = req.user;
+    const currentLimits = user.getCurrentLimits();
+    const usage = user.subscription.usage;
+
+    res.json({
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+        subscription: {
+          plan: user.subscription.plan,
+          status: user.subscription.status,
+          startDate: user.subscription.startDate,
+          endDate: user.subscription.endDate,
+          usage: {
+            campaigns: {
+              total: {
+                used: usage.campaigns.totalUsed,
+                limit: currentLimits.campaigns.total,
+                remaining: currentLimits.campaigns.total - usage.campaigns.totalUsed
+              },
+              active: {
+                used: usage.campaigns.activeCount,
+                limit: currentLimits.campaigns.active,
+                remaining: currentLimits.campaigns.active - usage.campaigns.activeCount
+              }
+            },
+            templates: {
+              used: usage.templates.count,
+              limit: currentLimits.templates,
+              remaining: currentLimits.templates - usage.templates.count
+            },
+            storage: {
+              used: usage.storage.used,
+              limit: currentLimits.storage,
+              remaining: currentLimits.storage - usage.storage.used,
+              usagePercentage: ((usage.storage.used / currentLimits.storage) * 100).toFixed(2)
+            },
+            contacts: {
+              used: usage.contacts.count,
+              limit: currentLimits.contacts,
+              remaining: currentLimits.contacts - usage.contacts.count
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Profile error:", error);
+    res.status(500).json({ error: "Failed to get profile" });
+  }
+},
+
+
+  // getProfile: async (req, res) => {
+  //   try {
+  //     res.json({
+  //       user: {
+  //         id: req.user._id,
+  //         name: req.user.name,
+  //         username: req.user.username,
+  //         email: req.user.email,
+  //         role: req.user.role,
+  //       },
+  //     });
+  //   } catch (error) {
+  //     console.error("Profile error:", error);
+  //     res.status(500).json({ error: "Failed to get profile" });
+  //   }
+  // },
 
   forgotPassword: async (req, res) => {
     try {

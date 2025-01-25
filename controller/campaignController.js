@@ -14,6 +14,18 @@ const config = {
 };
 
 const campaignController = {
+  // getAllCampaigns: async (req, res) => {
+  //   try {
+  //     const campaigns = await Campaign.find({ user: req.user._id })
+  //       .populate("templateId")
+  //       .populate("senderEmail")
+  //       .populate("recipientLists")
+  //       .sort({ createdAt: -1 });
+  //     res.json(campaigns);
+  //   } catch (err) {
+  //     res.status(500).json({ message: err.message });
+  //   }
+  // },
   getAllCampaigns: async (req, res) => {
     try {
       const campaigns = await Campaign.find({ user: req.user._id })
@@ -21,7 +33,23 @@ const campaignController = {
         .populate("senderEmail")
         .populate("recipientLists")
         .sort({ createdAt: -1 });
-      res.json(campaigns);
+
+      // Add usage stats to response
+      res.json({
+        campaigns,
+        usage: {
+          total: {
+            used: req.user.subscription.usage.campaigns.totalUsed,
+            limit: req.user.getCurrentLimits().campaigns.total,
+            remaining: await req.user.getRemainingQuota("campaigns", "total"),
+          },
+          active: {
+            used: req.user.subscription.usage.campaigns.activeCount,
+            limit: req.user.getCurrentLimits().campaigns.active,
+            remaining: await req.user.getRemainingQuota("campaigns", "active"),
+          },
+        },
+      });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -77,6 +105,10 @@ const campaignController = {
 
       const newCampaign = await campaign.save();
 
+      // Update user's campaign usage counts
+      await req.user.updateUsage("campaigns", "total", 1);
+      await req.user.updateUsage("campaigns", "active", 1);
+
       if (scheduledDate && new Date(scheduledDate) > new Date()) {
         await schedulerService.scheduleCampaign(newCampaign);
       }
@@ -86,11 +118,74 @@ const campaignController = {
         .populate("senderEmail")
         .populate("recipientLists");
 
-      res.status(201).json(populatedCampaign);
+      // Return campaign with usage stats
+      res.status(201).json({
+        campaign: populatedCampaign,
+        usage: {
+          total: {
+            used: req.user.subscription.usage.campaigns.totalUsed,
+            limit: req.user.getCurrentLimits().campaigns.total,
+            remaining: await req.user.getRemainingQuota("campaigns", "total"),
+          },
+          active: {
+            used: req.user.subscription.usage.campaigns.activeCount,
+            limit: req.user.getCurrentLimits().campaigns.active,
+            remaining: await req.user.getRemainingQuota("campaigns", "active"),
+          },
+        },
+      });
     } catch (err) {
       res.status(400).json({ message: err.message });
     }
   },
+
+  // createCampaign: async (req, res) => {
+  //   try {
+  //     const {
+  //       name,
+  //       subject,
+  //       templateId,
+  //       senderEmailId,
+  //       scheduledDate,
+  //       recipients,
+  //       recipientListIds,
+  //     } = req.body;
+
+  //     // Create campaign with user reference
+  //     const campaign = new Campaign({
+  //       name,
+  //       subject,
+  //       templateId,
+  //       senderEmail: senderEmailId,
+  //       scheduledDate,
+  //       user: req.user._id,
+  //       status: scheduledDate ? "scheduled" : "draft",
+  //       recipients: recipients || [],
+  //       recipientLists: recipientListIds || [],
+  //       progress: {
+  //         successCount: 0,
+  //         failCount: 0,
+  //         totalProcessed: 0,
+  //         totalRecipients: 0,
+  //       },
+  //     });
+
+  //     const newCampaign = await campaign.save();
+
+  //     if (scheduledDate && new Date(scheduledDate) > new Date()) {
+  //       await schedulerService.scheduleCampaign(newCampaign);
+  //     }
+
+  //     const populatedCampaign = await Campaign.findById(newCampaign._id)
+  //       .populate("templateId")
+  //       .populate("senderEmail")
+  //       .populate("recipientLists");
+
+  //     res.status(201).json(populatedCampaign);
+  //   } catch (err) {
+  //     res.status(400).json({ message: err.message });
+  //   }
+  // },
 
   getCampaign: async (req, res) => {
     try {
@@ -196,11 +291,57 @@ const campaignController = {
       }
 
       await campaign.remove();
-      res.json({ message: "Campaign deleted successfully" });
+
+      // Only decrease active count, total remains unchanged
+      await req.user.updateUsage("campaigns", "active", -1);
+
+      res.json({
+        message: "Campaign deleted successfully",
+        usage: {
+          total: {
+            used: req.user.subscription.usage.campaigns.totalUsed,
+            limit: req.user.getCurrentLimits().campaigns.total,
+            remaining: await req.user.getRemainingQuota("campaigns", "total"),
+          },
+          active: {
+            used: req.user.subscription.usage.campaigns.activeCount,
+            limit: req.user.getCurrentLimits().campaigns.active,
+            remaining: await req.user.getRemainingQuota("campaigns", "active"),
+          },
+        },
+      });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
   },
+
+  // deleteCampaign: async (req, res) => {
+  //   try {
+  //     const campaign = await Campaign.findOne({
+  //       _id: req.params.id,
+  //       user: req.user._id,
+  //     });
+
+  //     if (!campaign) {
+  //       return res.status(404).json({ message: "Campaign not found" });
+  //     }
+
+  //     if (campaign.status === "sending") {
+  //       return res.status(400).json({
+  //         message: "Cannot delete campaign while it is in progress",
+  //       });
+  //     }
+
+  //     if (campaign.status === "scheduled") {
+  //       schedulerService.cancelScheduledCampaign(campaign._id.toString());
+  //     }
+
+  //     await campaign.remove();
+  //     res.json({ message: "Campaign deleted successfully" });
+  //   } catch (err) {
+  //     res.status(500).json({ message: err.message });
+  //   }
+  // },
 
   scheduleCampaign: async (req, res) => {
     try {
