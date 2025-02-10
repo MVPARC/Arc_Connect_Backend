@@ -5,6 +5,7 @@ require("dotenv").config();
 const { dbConnect } = require("./config/dbconnection");
 const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
+const passport = require("./config/googleAuth");
 
 // Import routes
 const campaignRoutes = require("./routes/campaignRoutes");
@@ -27,6 +28,8 @@ app.use(
     parameterLimit: 1000000,
   })
 );
+
+app.use(passport.initialize());
 
 // Use routes
 

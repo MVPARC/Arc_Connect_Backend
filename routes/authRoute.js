@@ -1,4 +1,3 @@
-// routes/auth.js
 const express = require("express");
 const router = express.Router();
 const authController = require("../controller/authController");
@@ -6,7 +5,7 @@ const auth = require("../middleware/Auth");
 const { body } = require("express-validator");
 const checkRole = require("../middleware/checkRole");
 
-// Validation middleware
+// Validation middleware (existing code)
 const registerValidation = [
   body("username")
     .trim()
@@ -36,30 +35,31 @@ const resetPasswordValidation = [
     .withMessage("Password must be at least 6 characters long"),
 ];
 
-// Auth routes
+// Existing Auth routes
 router.post("/register", registerValidation, authController.register);
 router.post("/login", loginValidation, authController.login);
 router.post("/verify-otp", authController.verifyOTP);
 router.post("/resend-otp", authController.resendOTP);
-// router.get("/profile", auth, authController.getProfile);
 router.get(
   "/profile",
   auth,
   checkRole(["user", "admin"]),
   authController.getProfile
 );
-
 router.get("/users", auth, checkRole(["admin"]), authController.getAllUsers);
 router.post(
   "/forgot-password",
   body("email").isEmail().withMessage("Valid email is required"),
   authController.forgotPassword
 );
-
 router.post(
   "/reset-password",
   resetPasswordValidation,
   authController.resetPassword
 );
+
+// Add Google authentication routes
+router.get("/google", authController.googleAuth);
+router.get("/google/callback", authController.googleCallback);
 
 module.exports = router;
