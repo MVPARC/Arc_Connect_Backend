@@ -16,6 +16,7 @@ const emailRoutes = require("./routes/emailRoutes");
 const authRoutes = require("./routes/authRoute");
 const recipientRoutes = require("./routes/recipientRoutes");
 const imageRoutes = require("./routes/imageRoutes");
+const arcDeckRoutes = require("./routes/arcDeckRoutes");
 
 app.use(cors());
 app.use(cookieParser());
@@ -41,6 +42,7 @@ app.use("/api/tracking", trackingRoutes);
 app.use("/api/emails", emailRoutes);
 app.use("/api/recipients", recipientRoutes); // Add this line
 app.use("/api/images", imageRoutes);
+app.use("/api/v1/arcdeck", arcDeckRoutes);
 
 // 404 handler
 app.use((req, res) => {
