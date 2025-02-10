@@ -1,59 +1,179 @@
-const axios = require("axios");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const ArcDeckAnalysis = require("../model/arcDeckAnalysis");
 
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
+// Get API key from environment variables
+const API_KEY = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(API_KEY || "");
+
+const ANALYSIS_PROMPT = `You are a pitch deck analyzer. Analyze this pitch deck and provide detailed feedback including slide-by-slide analysis. Return EXACTLY this JSON structure:
+{
+  "overallScore": <0-100>,
+  "categoryScores": {
+    "content": <0-100>,
+    "market": <0-100>,
+    "business": <0-100>,
+    "team": <0-100>,
+    "financials": <0-100>,
+    "design": <0-100>
+  },
+  "slideAnalysis": [
+    {
+      "slideNumber": <number>,
+      "title": <string>,
+      "metrics": {
+        "spelling": <0-100>,
+        "structure": <0-100>,
+        "clarity": <0-100>,
+        "overall": <0-100>
+      },
+      "feedback": [
+        <array of strings with feedback>
+      ],
+      "suggestions": [
+        <array of strings with suggestions>
+      ],
+      "grammarIssues": [
+        <array of strings with grammar issues>
+      ]
+    }
+  ],
+  "feedback": {
+    "strengths": [<array of strings>],
+    "improvements": [<array of strings>],
+    "criticalIssues": [<array of strings>]
+  },
+  "investmentAnalysis": {
+    "marketOpportunity": <string>,
+    "competitiveAdvantage": <string>,
+    "growthPotential": <string>,
+    "risks": [<array of strings>]
+  },
+  "detailedReport": <string>
+}`;
+
+// JSON preprocessing function
+function preprocessJsonResponse(text) {
+  try {
+    let processed = text;
+    processed = processed.replace(/```json\s*|\s*```/g, "");
+
+    const start = processed.indexOf("{");
+    const end = processed.lastIndexOf("}");
+
+    if (start === -1 || end === -1) {
+      throw new Error("No JSON object found in text");
+    }
+
+    processed = processed.slice(start, end + 1);
+    processed = processed.replace(/\n/g, " ").replace(/\s+/g, " ");
+
+    processed = processed
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+      .replace(/"([^"]*)":\s*"([^"]*)"\s*([,}])/g, '"$1":"$2"$3')
+      .replace(/([{,])\s*"[^"]*":\s*undefined\s*([,}])/g, "$1$2")
+      .replace(/,\s*,/g, ",")
+      .replace(/\[\s*,/g, "[")
+      .replace(/,\s*\]/g, "]")
+      .replace(/:\s*'([^']*)'/g, ':"$1"')
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, "");
+
+    JSON.parse(processed); // Validate JSON
+    return processed;
+  } catch (error) {
+    console.error("Error preprocessing JSON:", error);
+    throw error;
+  }
+}
+
+function createDefaultAnalysis() {
+  return {
+    overallScore: 60,
+    categoryScores: {
+      content: 60,
+      market: 60,
+      business: 60,
+      team: 60,
+      financials: 60,
+      design: 60,
+    },
+    slideAnalysis: [
+      {
+        slideNumber: 1,
+        title: "Title Slide",
+        metrics: {
+          spelling: 60,
+          structure: 60,
+          clarity: 60,
+          overall: 60,
+        },
+        feedback: ["Analysis pending"],
+        suggestions: ["Upload deck for analysis"],
+        grammarIssues: [],
+      },
+    ],
+    feedback: {
+      strengths: ["Potential identified"],
+      improvements: ["Details needed"],
+      criticalIssues: ["Review recommended"],
+    },
+    investmentAnalysis: {
+      marketOpportunity: "Market size to be determined",
+      competitiveAdvantage: "Analysis needed",
+      growthPotential: "To be assessed",
+      risks: ["Further validation required"],
+    },
+    detailedReport: "Analysis pending...",
+  };
+}
 
 const arcDeckController = {
   analyzeDocument: async (req, res) => {
     try {
       const { pdfContent, fileName, fileSize, mimeType } = req.body;
-      const userId = req.user._id; // From auth middleware
+      const userId = req.user._id;
 
-      // Validate input
       if (!pdfContent || !fileName) {
-        return res
-          .status(400)
-          .json({ error: "PDF content and filename are required" });
+        return res.status(400).json({
+          error: "PDF content and filename are required",
+        });
       }
 
-      // Configuration for Gemini API
-      const config = {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
-        },
-      };
+      if (!API_KEY) {
+        throw new Error("Gemini API key not configured");
+      }
 
-      // Prepare payload for Gemini API
-      const payload = {
-        contents: [
-          {
-            parts: [
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: pdfContent, // Base64 encoded PDF content
-                },
-              },
-            ],
-            role: "user",
+      // Initialize Gemini model
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+
+      // Generate content using the model
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: pdfContent,
+            mimeType,
           },
-        ],
-        generationConfig: {},
-        safetySettings: [],
-      };
+        },
+        { text: ANALYSIS_PROMPT },
+      ]);
 
-      // Call Gemini API
-      const geminiResponse = await axios.post(GEMINI_API_URL, payload, config);
+      const responseText = result.response.text();
+      console.log("Raw response:", responseText);
 
-      // Extract relevant information from Gemini response
-      const analysisResult = geminiResponse.data;
+      const processedJson = preprocessJsonResponse(responseText);
+      console.log("Processed JSON:", processedJson);
 
-      // Calculate overall score (you may need to adjust this based on your requirements)
-      const overallScore = 20; // Example score, modify based on your logic
+      const analysisResult = JSON.parse(processedJson);
 
-      // Create new analysis record
+      // Calculate overall score based on category scores
+      const categoryScores = analysisResult.categoryScores;
+      const overallScore = Math.round(
+        Object.values(categoryScores).reduce((a, b) => a + b, 0) /
+          Object.keys(categoryScores).length
+      );
+
+      // Create and save analysis
       const analysis = new ArcDeckAnalysis({
         userId,
         fileName,
@@ -77,9 +197,14 @@ const arcDeckController = {
       });
     } catch (error) {
       console.error("PDF Analysis error:", error);
+
+      // Create default analysis if Gemini fails
+      const defaultAnalysis = createDefaultAnalysis();
+
       res.status(500).json({
         error: "Failed to analyze document",
         details: error.response?.data || error.message,
+        defaultAnalysis,
       });
     }
   },
@@ -94,7 +219,7 @@ const arcDeckController = {
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .select("-analysisResult"); // Exclude large analysis result by default
+        .select("fileName overallScore createdAt");
 
       const total = await ArcDeckAnalysis.countDocuments({ userId });
 
@@ -104,11 +229,15 @@ const arcDeckController = {
           currentPage: page,
           totalPages: Math.ceil(total / limit),
           totalItems: total,
+          itemsPerPage: limit,
         },
       });
     } catch (error) {
       console.error("Get user analyses error:", error);
-      res.status(500).json({ error: "Failed to fetch analyses" });
+      res.status(500).json({
+        error: "Failed to fetch analyses",
+        details: error.message,
+      });
     }
   },
 
@@ -120,16 +249,21 @@ const arcDeckController = {
       const analysis = await ArcDeckAnalysis.findOne({
         _id: id,
         userId,
-      });
+      }).select("+analysisResult");
 
       if (!analysis) {
-        return res.status(404).json({ error: "Analysis not found" });
+        return res.status(404).json({
+          error: "Analysis not found",
+        });
       }
 
       res.json({ analysis });
     } catch (error) {
       console.error("Get analysis error:", error);
-      res.status(500).json({ error: "Failed to fetch analysis" });
+      res.status(500).json({
+        error: "Failed to fetch analysis",
+        details: error.message,
+      });
     }
   },
 };
