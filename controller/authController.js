@@ -55,7 +55,7 @@ const generateToken = (user) => {
 };
 
 const generatePasswordResetToken = (email) => {
-  const resetCode = crypto.randomBytes(32).toString("hex"); // Add crypto import at top
+  const resetCode = crypto.randomBytes(32).toString("hex");
   return {
     token: jwt.sign(
       {
