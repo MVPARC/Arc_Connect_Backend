@@ -78,6 +78,9 @@ exports.sendEmail = async (
 
   // Use BACKEND_URL from .env
   console.log("backed url", BACKEND_URL);
+  console.log("receipietn,=", recipientId);
+  console.log("campaign,=", campaignId);
+
   const trackingPixel = `<img src="${BACKEND_URL}/api/tracking/${campaignId}/${recipientId}" width="1" height="1" />`;
   personalizedContent += trackingPixel;
 

@@ -36,16 +36,19 @@
 // };
 
 // Update your tracking controller
+const Report = require("../model/reportModel");
+const UAParser = require("ua-parser-js");
 exports.trackOpen = async (req, res) => {
   try {
     const { campaignId, recipientId } = req.params;
 
-    // New: Capture user agent data
+    // Parse user agent data
+    const parser = new UAParser(req.headers["user-agent"]);
     const userAgent = req.headers["user-agent"];
     const ipAddress = req.ip || req.connection.remoteAddress;
 
-    // Parsed user agent info
-    const deviceInfo = parseUserAgent(userAgent); // You'll need a parser library
+    // Get parsed user agent info
+    const deviceInfo = parser.getResult();
 
     await Report.findOneAndUpdate(
       { campaignId },
@@ -57,9 +60,9 @@ exports.trackOpen = async (req, res) => {
             timestamp: new Date(),
             userAgent,
             ipAddress,
-            device: deviceInfo.device,
-            browser: deviceInfo.browser,
-            os: deviceInfo.os,
+            device: deviceInfo.device.type || "unknown",
+            browser: deviceInfo.browser.name || "unknown",
+            os: deviceInfo.os.name || "unknown",
           },
         },
       },
