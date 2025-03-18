@@ -9,7 +9,6 @@ const reportSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
     index: true,
   },
   totalSent: {
@@ -22,11 +21,21 @@ const reportSchema = new mongoose.Schema({
       {
         recipientId: String,
         timestamp: Date,
-        userAgent: String,
         ipAddress: String,
-        device: String,
-        browser: String,
-        os: String,
+        userAgent: String,
+        device: {
+          type: { type: String }, // Change: Define as nested object
+          vendor: String,
+          model: String,
+        },
+        browser: {
+          name: String,
+          version: String,
+        },
+        os: {
+          name: String,
+          version: String,
+        },
       },
     ],
   },
@@ -37,6 +46,21 @@ const reportSchema = new mongoose.Schema({
         recipientId: String,
         timestamp: Date,
         url: String,
+        ipAddress: String,
+        userAgent: String,
+        device: {
+          type: { type: String }, // Change: Define as nested object
+          vendor: String,
+          model: String,
+        },
+        browser: {
+          name: String,
+          version: String,
+        },
+        os: {
+          name: String,
+          version: String,
+        },
       },
     ],
   },
@@ -46,7 +70,8 @@ const reportSchema = new mongoose.Schema({
   },
 });
 
-// Add compound index for efficient querying
+// Indexes
+reportSchema.index({ campaignId: 1 });
 reportSchema.index({ user: 1, createdAt: -1 });
 reportSchema.index({ user: 1, campaignId: 1 });
 
