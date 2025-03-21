@@ -1,41 +1,4 @@
-// const Report = require("../model/reportModel");
 
-// exports.trackOpen = async (req, res) => {
-//   try {
-//     const { campaignId, recipientId } = req.params;
-//     console.log(
-//       `Tracking open for campaign ${campaignId}, recipient ${recipientId}`
-//     );
-
-//     // Return tracking pixel immediately
-//     res.set("Content-Type", "image/gif");
-//     res.send(
-//       Buffer.from(
-//         "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-//         "base64"
-//       )
-//     );
-
-//     // Find or create report without requiring user field
-//     const reportUpdate = await Report.findOneAndUpdate(
-//       { campaignId },
-//       {
-//         $inc: { "opens.total": 1 },
-//         $push: { "opens.details": { recipientId, timestamp: new Date() } },
-//       },
-//       {
-//         new: true,
-//         upsert: true,
-//         // Skip validation to avoid user field requirement
-//         runValidators: false,
-//       }
-//     );
-
-//     console.log(`Open tracked successfully for campaign ${campaignId}`);
-//   } catch (error) {
-//     console.error("Error tracking open:", error);
-//   }
-// };
 
 const Report = require("../model/reportModel");
 const UAParser = require("ua-parser-js");
