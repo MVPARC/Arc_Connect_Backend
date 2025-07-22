@@ -7,14 +7,14 @@ const cookieParser = require("cookie-parser");
 const bodyParser = require("body-parser");
 const passport = require("./config/googleAuth");
 
-// ✅ Import Winston Logger
+//  Import Winston Logger
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
 
-// ✅ Import Prometheus Client
+//  Import Prometheus Client
 const client = require("prom-client");
 
-// ✅ Winston Logger with Loki Transport
+// Winston Logger with Loki Transport
 const logger = winston.createLogger({
   level: "info",
   format: winston.format.json(),
@@ -31,7 +31,7 @@ const logger = winston.createLogger({
   ],
 });
 
-// ✅ Prometheus Metrics Setup
+// Prometheus Metrics Setup
 const register = new client.Registry();
 client.collectDefaultMetrics({ register });
 
@@ -44,7 +44,7 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 
 register.registerMetric(httpRequestDurationMicroseconds);
 
-// ✅ Middleware for request duration
+//  Middleware for request duration
 app.use((req, res, next) => {
   const end = httpRequestDurationMicroseconds.startTimer();
   res.on("finish", () => {
@@ -58,7 +58,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Metrics endpoint
+//  Metrics endpoint
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);
   res.send(await register.metrics());
@@ -89,16 +89,25 @@ app.use(
 
 app.use(passport.initialize());
 
-// ✅ Application Routes
+// Root and Health Check Routes
+app.get("/", (req, res) => {
+  res.send("Backend is running! API is live.");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Application Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/campaigns", campaignRoutes); //done
-app.use("/api/email-templates", emailTemplateRoutes); //done
-app.use("/api/reports", reportRoutes); //done
-app.use("/api/tracking", trackingRoutes); //done
-app.use("/api/emails", emailRoutes); //done
-app.use("/api/recipients", recipientRoutes); //done
-app.use("/api/images", imageRoutes); //done
-app.use("/api/v1/arcdeck", arcDeckRoutes); //done
+app.use("/api/campaigns", campaignRoutes);
+app.use("/api/email-templates", emailTemplateRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/tracking", trackingRoutes);
+app.use("/api/emails", emailRoutes);
+app.use("/api/recipients", recipientRoutes);
+app.use("/api/images", imageRoutes);
+app.use("/api/v1/arcdeck", arcDeckRoutes);
 
 // 404 handler
 app.use((req, res) => {
