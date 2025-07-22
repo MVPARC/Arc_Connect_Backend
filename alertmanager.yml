@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'harsha12saini@gmail.com'       
+  smtp_auth_username: 'harsha12saini@gmail.com'
+  smtp_auth_password: 'oojf mupd lkat dpmj'  # Use an app password or token if 2FA is on
+  smtp_require_tls: true
+
+route:
+  receiver: email-team
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 3h
+
+
+receivers:
+  - name: 'email-team'
+    email_configs:
+      - to: 'h12saini@gmail.com'
+        send_resolved: true

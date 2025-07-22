@@ -1,0 +1,49 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+logs
+*.log
+logs/*
+
+# Dependency directories
+jspm_packages/
+typings/
+
+# Build output
+dist/
+build/
+
+# Environment variables
+.env
+
+# Editor directories and files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Package lock files
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.swp
+
+# Coverage directory used by testing tools
+coverage/
+
+# Local config files (you may want to share the config.example.json instead)
+config/local.json
+
+# S3-specific ignore (if applicable)
+.aws/
+.env

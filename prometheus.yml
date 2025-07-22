@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 5s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']  # use the service name from Docker Compose
+
+rule_files:
+  - alert.rules.yml
+
+scrape_configs:
+  - job_name: 'arc_backend'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+
+
+
+#http://localhost:8081/metrics
+#docker rm -f prometheus
+
+#docker run -d -p 9090:9090 -v "D:/data/Documents/Internship 2025/Arc_Connect_Backend-main/Arc_Connect_Backend-main/prometheus.yml:/etc/prometheus/prometheus.yml" --name prometheus prom/prometheus
+
+#docker rm -f grafana
+#docker run -d -p 3000:3000 --name grafana grafana/grafana
+
+#docker run -d --name=loki -p 3100:3100 grafana/loki:2.9.0
+
+
+#Stop Grafana-	docker stop grafana
+#Remove Grafana-	docker rm grafana
+
+#rate(http_requests_total[1m]) - Monitors request rate, Good for measuring backend load
+
+####docker start prometheus
+####docker start grafana
+####docker start loki
+
+

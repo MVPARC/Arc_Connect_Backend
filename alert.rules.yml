@@ -1,0 +1,57 @@
+groups:
+  - name: arc_connect_backend_alerts
+    rules:
+      - alert: HighLoginFailures
+        expr: increase(login_failures_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of login failures"
+          description: "More than 5 login failures in the last 5 minutes. Possible brute force attempt."
+
+      - alert: HighHTTP500Errors
+        expr: rate(http_requests_total{code="500"}[2m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elevated HTTP 500 Error Rate"
+          description: "More than 0.1 RPS of 500 Internal Server Errors in the past 2 minutes."
+
+      - alert: BackendDown
+        expr: up{job="arc_backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend instance is down"
+          description: "Prometheus could not reach the arc_connect_backend service for over 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{app="arc_backend"} > 300000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in backend"
+          description: "Memory usage is over 300MB for more than 2 minutes."
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{app="arc_backend"}[1m]) > 0.5
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is high in arc_connect_backend for over 2 minutes."
+
+      - alert: AlwaysFiring
+        expr: vector(1)
+        for: 10s
+        labels:
+          severity: info
+        annotations:
+          summary: "Always firing test alert"
+          description: "This is a test alert that always fires."
+
