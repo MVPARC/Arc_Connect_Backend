@@ -8,129 +8,278 @@ const mongoose = require("mongoose");
  */
 
 // Get summary metrics for a specific campaign
-
-// ✅ Part 1: Get Campaign Summary
 exports.getCampaignSummary = async (req, res) => {
   try {
     const { campaignId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(campaignId)) {
-      return res.status(400).json({ success: false, message: "Invalid campaign ID" });
+    
+    // Verify user has access to this campaign
+    const campaign = await Campaign.findOne({
+      _id: campaignId,
+      user: req.user._id,
+    });
+    
+    if (!campaign) {
+      return res.status(404).json({ message: "Campaign not found" });
     }
-
-    const [campaign, report] = await Promise.all([
-      Campaign.findOne({ _id: campaignId, user: req.user._id }).select("name completedAt scheduledDate"),
-      Report.findOne({ campaignId, user: req.user._id })
-    ]);
-
-    if (!campaign) return res.status(404).json({ success: false, message: "Campaign not found" });
-    if (!report) return res.status(404).json({ success: false, message: "Report not found" });
-
-    const delivered = report.totalSent - (report.bounces?.total || 0);
-    const complaintsRate = report.totalSent ? ((report.complaints?.total || 0) / report.totalSent) * 100 : 0;
-
+    
+    const report = await Report.findOne({ 
+      campaignId, 
+      user: req.user._id 
+    });
+    
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+    
+    // Prepare summary data
     const summary = {
       campaignId: campaign._id,
       campaignName: campaign.name,
-      sentDate: campaign.completedAt || campaign.scheduledDate,
-      lastUpdate: report.lastUpdated,
-      totalSent: report.totalSent || 0,
-      delivered,
-      bounced: report.bounces?.total || 0,
-      deliveryRate: report.deliveryRate || 0,
+      totalSent: report.totalSent,
+      // Delivery metrics
+      delivered: report.totalSent - report.bounces.total,
+      bounced: report.bounces.total,
+      deliveryRate: report.deliveryRate,
+      // Engagement metrics
       opens: {
-        total: report.opens?.total || 0,
-        unique: report.opens?.uniqueCount || 0,
-        rate: report.openRate || 0
+        total: report.opens.total,
+        unique: report.opens.uniqueCount,
+        rate: report.openRate
       },
       clicks: {
-        total: report.clicks?.total || 0,
-        unique: report.clicks?.uniqueCount || 0,
-        rate: report.clickRate || 0,
-        ctr: report.clickToOpenRate || 0
+        total: report.clicks.total,
+        unique: report.clicks.uniqueCount,
+        rate: report.clickRate,
+        ctr: report.clickToOpenRate // Click-to-open rate
       },
+      // Negative metrics
       unsubscribes: {
-        total: report.unsubscribes?.total || 0,
-        rate: report.unsubscribeRate || 0
+        total: report.unsubscribes.total,
+        rate: report.unsubscribeRate
       },
       complaints: {
-        total: report.complaints?.total || 0,
-        rate: complaintsRate
-      }
+        total: report.complaints.total,
+        rate: report.complaints.total / report.totalSent * 100
+      },
+      // Timing
+      sentDate: campaign.completedAt || campaign.scheduledDate,
+      lastUpdate: report.lastUpdated
     };
-
-    res.status(200).json({ success: true, data: summary });
+    
+    res.json(summary);
   } catch (error) {
     console.error("Error getting campaign summary:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// ✅ Part 2: Get Campaign Opens (with device & geo breakdown)
+// Get detailed open data for a campaign
 exports.getCampaignOpens = async (req, res) => {
   try {
     const { campaignId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(campaignId)) {
-      return res.status(400).json({ success: false, message: "Invalid campaign ID" });
+    
+    // Verify campaign ownership
+    const campaign = await Campaign.findOne({
+      _id: campaignId,
+      user: req.user._id,
+    });
+    
+    if (!campaign) {
+      return res.status(404).json({ message: "Campaign not found" });
     }
-
-    const report = await Report.findOne({ campaignId, user: req.user._id }).select("opens");
-
-    if (!report || !report.opens) {
-      return res.status(404).json({ success: false, message: "Open data not found" });
+    
+    const report = await Report.findOne({ 
+      campaignId, 
+      user: req.user._id 
+    });
+    
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
     }
-
-    const opens = {
-      total: report.opens.total || 0,
-      unique: report.opens.uniqueCount || 0,
-      rate: report.openRate || 0,
-      breakdown: {
-        device: report.opens.byDevice || {},
-        geo: report.opens.byGeo || {},
-        hourly: report.opens.byHour || {}
+    
+    // Process opens data
+    const opensByRecipient = {};
+    report.opens.details.forEach(open => {
+      if (!opensByRecipient[open.recipientId]) {
+        opensByRecipient[open.recipientId] = {
+          recipientId: open.recipientId,
+          count: 0,
+          firstOpen: null,
+          lastOpen: null,
+          openTimes: []
+        };
       }
+      
+      const recipient = opensByRecipient[open.recipientId];
+      recipient.count++;
+      const openTime = new Date(open.timestamp);
+      
+      if (!recipient.firstOpen || openTime < new Date(recipient.firstOpen)) {
+        recipient.firstOpen = openTime;
+      }
+      
+      if (!recipient.lastOpen || openTime > new Date(recipient.lastOpen)) {
+        recipient.lastOpen = openTime;
+      }
+      
+      recipient.openTimes.push({
+        timestamp: openTime,
+        device: open.device,
+        platform: open.platform,
+        location: open.geo.country
+      });
+    });
+    
+    // Format opens for response
+    const opensData = {
+      totalOpens: report.opens.total,
+      uniqueOpens: report.opens.uniqueCount,
+      openRate: report.openRate,
+      byCountry: report.opens.byCountry,
+      byDevice: report.opens.byDevice,
+      byBrowser: report.opens.byBrowser,
+      byTimeOfDay: report.opens.byTimeOfDay,
+      byDayOfWeek: report.opens.byDayOfWeek,
+      byPlatform: {},  // Aggregate platform data
+      openTrend: {}, // Aggregate open trend data by hour
+      recipients: Object.values(opensByRecipient)
     };
-
-    res.status(200).json({ success: true, data: opens });
+    
+    // Calculate platform distribution
+    report.opens.details.forEach(open => {
+      if (open.platform) {
+        opensData.byPlatform[open.platform] = 
+          (opensData.byPlatform[open.platform] || 0) + 1;
+      }
+    });
+    
+    // Calculate open trend by hour
+    report.opens.details.forEach(open => {
+      const hour = new Date(open.timestamp).getHours();
+      opensData.openTrend[hour] = (opensData.openTrend[hour] || 0) + 1;
+    });
+    
+    res.json(opensData);
   } catch (error) {
-    console.error("Error fetching campaign opens:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    console.error("Error getting campaign opens:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// ✅ Part 3: Get Campaign Clicks (with link-level analytics)
+// Get detailed click data for a campaign
 exports.getCampaignClicks = async (req, res) => {
   try {
     const { campaignId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(campaignId)) {
-      return res.status(400).json({ success: false, message: "Invalid campaign ID" });
+    
+    // Verify campaign ownership
+    const campaign = await Campaign.findOne({
+      _id: campaignId,
+      user: req.user._id,
+    });
+    
+    if (!campaign) {
+      return res.status(404).json({ message: "Campaign not found" });
     }
-
-    const report = await Report.findOne({ campaignId, user: req.user._id }).select("clicks");
-
-    if (!report || !report.clicks) {
-      return res.status(404).json({ success: false, message: "Click data not found" });
+    
+    const report = await Report.findOne({ 
+      campaignId, 
+      user: req.user._id 
+    });
+    
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
     }
-
-    const clicks = {
-      total: report.clicks.total || 0,
-      unique: report.clicks.uniqueCount || 0,
-      rate: report.clickRate || 0,
-      ctr: report.clickToOpenRate || 0,
-      breakdown: {
-        links: report.clicks.byLink || [],
-        device: report.clicks.byDevice || {},
-        geo: report.clicks.byGeo || {},
-        hourly: report.clicks.byHour || {}
+    
+    // Process clicks data
+    const clicksByLink = {};
+    const clicksByRecipient = {};
+    
+    report.clicks.details.forEach(click => {
+      // Group by link
+      if (!clicksByLink[click.url]) {
+        clicksByLink[click.url] = {
+          url: click.url,
+          linkText: click.linkText || "Unknown",
+          linkId: click.linkId,
+          count: 0,
+          uniqueClickers: new Set(),
+          clicks: []
+        };
       }
+      
+      clicksByLink[click.url].count++;
+      clicksByLink[click.url].uniqueClickers.add(click.recipientId);
+      clicksByLink[click.url].clicks.push({
+        timestamp: click.timestamp,
+        recipient: click.recipientId,
+        device: click.device,
+        geo: click.geo
+      });
+      
+      // Group by recipient
+      if (!clicksByRecipient[click.recipientId]) {
+        clicksByRecipient[click.recipientId] = {
+          recipientId: click.recipientId,
+          count: 0,
+          firstClick: null,
+          lastClick: null,
+          clickedLinks: new Set(),
+          clicks: []
+        };
+      }
+      
+      const recipient = clicksByRecipient[click.recipientId];
+      recipient.count++;
+      recipient.clickedLinks.add(click.url);
+      
+      const clickTime = new Date(click.timestamp);
+      if (!recipient.firstClick || clickTime < new Date(recipient.firstClick)) {
+        recipient.firstClick = clickTime;
+      }
+      
+      if (!recipient.lastClick || clickTime > new Date(recipient.lastClick)) {
+        recipient.lastClick = clickTime;
+      }
+      
+      recipient.clicks.push({
+        timestamp: clickTime,
+        url: click.url,
+        linkText: click.linkText,
+        device: click.device,
+        location: click.geo.country
+      });
+    });
+    
+    // Format for response
+    // Convert Sets to arrays for JSON serialization
+    Object.values(clicksByLink).forEach(link => {
+      link.uniqueClickers = [...link.uniqueClickers];
+      link.uniqueClickersCount = link.uniqueClickers.length;
+    });
+    
+    Object.values(clicksByRecipient).forEach(recipient => {
+      recipient.clickedLinks = [...recipient.clickedLinks];
+      recipient.uniqueLinksCount = recipient.clickedLinks.length;
+    });
+    
+    const clicksData = {
+      totalClicks: report.clicks.total,
+      uniqueClicks: report.clicks.uniqueCount,
+      clickRate: report.clickRate,
+      clickToOpenRate: report.clickToOpenRate,
+      byCountry: report.clicks.byCountry,
+      byDevice: report.clicks.byDevice,
+      byTimeOfDay: report.clicks.byTimeOfDay,
+      byDayOfWeek: report.clicks.byDayOfWeek,
+      byUrl: report.clicks.byUrl,
+      links: Object.values(clicksByLink),
+      recipients: Object.values(clicksByRecipient)
     };
-
-    res.status(200).json({ success: true, data: clicks });
+    
+    res.json(clicksData);
   } catch (error) {
-    console.error("Error fetching campaign clicks:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    console.error("Error getting campaign clicks:", error);
+    res.status(500).json({ message: error.message });
   }
 };
 
