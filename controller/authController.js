@@ -110,76 +110,85 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 
 // ========== Auth Controller ==========
 const authController = {
-  register: async (req, res) => {
-    try {
-      const {
-        username,
-        email,
-        password,
-        organizationName,
-        organizationDomain,
-        organizationAddress,
-      } = req.body;
+ register: async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      password,
+      organizationName,
+      organizationDomain,
+      organizationAddress,
+    } = req.body;
 
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ error: "Email already registered" });
-      }
+    // Check if email or username already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
 
-      // Check or create organization
-      let org = await Organization.findOne({
-        $or: [{ name: organizationName }, { domain: organizationDomain }],
+    if (existingUser) {
+      const conflicts = [];
+      if (existingUser.email === email) conflicts.push("email");
+      if (existingUser.username === username) conflicts.push("username");
+
+      return res.status(400).json({
+        error: `${conflicts.join(" and ")} already registered`,
       });
-
-      if (!org) {
-        org = new Organization({
-          name: organizationName,
-          domain: organizationDomain,
-          address: organizationAddress,
-        });
-        await org.save();
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Create user
-      const newUser = new User({
-        username,
-        email,
-        password: hashedPassword,
-        organization: org._id,
-        isVerified: false,
-      });
-      await newUser.save();
-
-      // Set createdBy if first user
-      if (!org.createdBy) {
-        org.createdBy = newUser._id;
-        await org.save();
-      }
-
-      // Generate and send OTP
-      const otp = generateOTP();
-      await new OTP({ email, otp }).save();
-      await sendOTPEmail(email, otp);
-
-      logger.info(`User registered: ${username}, email: ${email}`);
-      res.status(201).json({
-        message: "User registered successfully. Please verify your email.",
-        user: {
-          id: newUser._id,
-          username: newUser.username,
-          email: newUser.email,
-          organization: org.name,
-        },
-      });
-    } catch (err) {
-      logger.error("Register error", { error: err });
-      res.status(500).json({ error: "Server error during registration" });
     }
-  },
+
+    // Check or create organization
+    let org = await Organization.findOne({
+      $or: [{ name: organizationName }, { domain: organizationDomain }],
+    });
+
+    if (!org) {
+      org = new Organization({
+        name: organizationName,
+        domain: organizationDomain,
+        address: organizationAddress,
+      });
+      await org.save();
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      organization: org._id,
+      isVerified: false,
+    });
+    await newUser.save();
+
+    // Set createdBy if first user
+    if (!org.createdBy) {
+      org.createdBy = newUser._id;
+      await org.save();
+    }
+
+    // Generate and send OTP
+    const otp = generateOTP();
+    await new OTP({ email, otp }).save();
+    await sendOTPEmail(email, otp);
+
+    logger.info(`User registered: ${username}, email: ${email}`);
+    res.status(201).json({
+      message: "User registered successfully. Please verify your email.",
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        organization: org.name,
+      },
+    });
+  } catch (err) {
+    logger.error("Register error", { error: err });
+    res.status(500).json({ error: "Server error during registration" });
+  }
+},
 
   // (rest of the unchanged methods below...)
 
