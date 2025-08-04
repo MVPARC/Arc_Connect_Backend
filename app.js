@@ -10,6 +10,11 @@ const passport = require("./config/googleAuth");
 //  Import Winston Logger
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./utils/swagger');
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 //  Import Prometheus Client
 const client = require("prom-client");

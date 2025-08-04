@@ -1,101 +1,3 @@
-// const express = require("express");
-// const router = express.Router();
-// const multer = require("multer");
-// const { BlobServiceClient } = require("@azure/storage-blob");
-// // const { auth } = require("../middleware/auth"); // Assuming you have auth middleware
-
-// const storage = multer.memoryStorage();
-// const upload = multer({
-//   storage: storage,
-//   limits: {
-//     fileSize: 5 * 1024 * 1024, // 5MB limit
-//   },
-// });
-
-// const blobServiceClient = BlobServiceClient.fromConnectionString(
-//   process.env.AZURE_STORAGE_CONNECTION_STRING
-// );
-// const containerName = "template-images";
-
-// router.post("/upload", upload.single("image"), async (req, res) => {
-//   try {
-//     if (!req.file) {
-//       return res.status(400).json({ message: "No file uploaded" });
-//     }
-
-//     const containerClient = blobServiceClient.getContainerClient(containerName);
-
-//     // Generate unique filename
-//     const fileName = `${Date.now()}-${req.file.originalname}`;
-//     const blockBlobClient = containerClient.getBlockBlobClient(fileName);
-
-//     // Upload file
-//     await blockBlobClient.upload(req.file.buffer, req.file.size, {
-//       blobHTTPHeaders: { blobContentType: req.file.mimetype },
-//     });
-
-//     // Get the URL of the uploaded blob
-//     const imageUrl = blockBlobClient.url;
-
-//     res.status(200).json({
-//       message: "File uploaded successfully",
-//       imageUrl: imageUrl,
-//     });
-//   } catch (error) {
-//     console.error("Error uploading file:", error);
-//     res.status(500).json({
-//       message: "Error uploading file",
-//       error: error.message,
-//     });
-//   }
-// });
-
-// // Upload multiple images
-// router.post(
-//   "/upload-multiple",
-//   // auth,
-//   upload.array("images", 5),
-//   async (req, res) => {
-//     try {
-//       if (!req.files || req.files.length === 0) {
-//         return res.status(400).json({ message: "No files uploaded" });
-//       }
-
-//       const containerClient =
-//         blobServiceClient.getContainerClient(containerName);
-//       const uploadResults = [];
-
-//       // Upload each file
-//       for (const file of req.files) {
-//         const fileName = `${Date.now()}-${file.originalname}`;
-//         const blockBlobClient = containerClient.getBlockBlobClient(fileName);
-
-//         await blockBlobClient.upload(file.buffer, file.size, {
-//           blobHTTPHeaders: { blobContentType: file.mimetype },
-//         });
-
-//         uploadResults.push({
-//           originalName: file.originalname,
-//           imageUrl: blockBlobClient.url,
-//         });
-//       }
-
-//       res.status(200).json({
-//         message: "Files uploaded successfully",
-//         files: uploadResults,
-//       });
-//     } catch (error) {
-//       console.error("Error uploading files:", error);
-//       res.status(500).json({
-//         message: "Error uploading files",
-//         error: error.message,
-//       });
-//     }
-//   }
-// );
-
-// module.exports = router;
-
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
@@ -106,9 +8,7 @@ const { checkStorageLimit } = require("../middleware/subscriptionMiddleware");
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
 const blobServiceClient = BlobServiceClient.fromConnectionString(
@@ -116,10 +16,42 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(
 );
 const containerName = "template-images";
 
-// Helper function to convert bytes to MB
+// Convert bytes to MB
 const bytesToMB = (bytes) => bytes / (1024 * 1024);
 
-// Single file upload with limit checking
+/**
+ * @swagger
+ * tags:
+ *   name: FileUpload
+ *   description: Upload images to Azure Blob and track storage usage
+ */
+
+/**
+ * @swagger
+ * /upload:
+ *   post:
+ *     summary: Upload a single image file
+ *     tags: [FileUpload]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: File uploaded successfully
+ *       400:
+ *         description: No file uploaded
+ *       500:
+ *         description: Server error during upload
+ */
 router.post(
   "/upload",
   auth(),
@@ -131,20 +63,15 @@ router.post(
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const containerClient =
-        blobServiceClient.getContainerClient(containerName);
+      const containerClient = blobServiceClient.getContainerClient(containerName);
       const fileName = `${req.user._id}-${Date.now()}-${req.file.originalname}`;
       const blockBlobClient = containerClient.getBlockBlobClient(fileName);
 
-      // Upload file
       await blockBlobClient.upload(req.file.buffer, req.file.size, {
         blobHTTPHeaders: { blobContentType: req.file.mimetype },
       });
 
-      // Update user's storage usage
       const fileSizeInMB = bytesToMB(req.file.size);
-      // await req.user.updateUsage("storage", fileSizeInMB);
-
       await req.user.updateUsage("storage", "used", fileSizeInMB);
 
       res.status(200).json({
@@ -164,7 +91,34 @@ router.post(
   }
 );
 
-// Multiple files upload with limit checking
+/**
+ * @swagger
+ * /upload-multiple:
+ *   post:
+ *     summary: Upload multiple image files (max 5)
+ *     tags: [FileUpload]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Files uploaded successfully
+ *       400:
+ *         description: No files uploaded
+ *       500:
+ *         description: Server error during upload
+ */
 router.post(
   "/upload-multiple",
   auth(),
@@ -176,12 +130,10 @@ router.post(
         return res.status(400).json({ message: "No files uploaded" });
       }
 
-      const containerClient =
-        blobServiceClient.getContainerClient(containerName);
+      const containerClient = blobServiceClient.getContainerClient(containerName);
       const uploadResults = [];
       let totalSizeInMB = 0;
 
-      // Upload each file
       for (const file of req.files) {
         const fileName = `${req.user._id}-${Date.now()}-${file.originalname}`;
         const blockBlobClient = containerClient.getBlockBlobClient(fileName);
@@ -200,10 +152,8 @@ router.post(
         });
       }
 
-      // Update user's storage usage
       await req.user.updateUsage("storage", totalSizeInMB);
 
-      // Get updated storage stats
       const currentLimits = req.user.getCurrentLimits();
       const currentUsage = req.user.subscription.usage.storage.used;
 
@@ -228,7 +178,20 @@ router.post(
   }
 );
 
-// Get storage usage stats
+/**
+ * @swagger
+ * /storage-stats:
+ *   get:
+ *     summary: Get current user's storage usage and limits
+ *     tags: [FileUpload]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Returns usage, limits, and percentage
+ *       500:
+ *         description: Failed to fetch usage
+ */
 router.get("/storage-stats", auth(), async (req, res) => {
   try {
     const currentLimits = req.user.getCurrentLimits();

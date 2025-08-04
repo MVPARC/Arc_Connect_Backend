@@ -7,13 +7,48 @@ const auth = require("../middleware/Auth");
 router.use(auth());
 
 /**
- * ✅ Add a new email
+ * @swagger
+ * tags:
+ *   name: Emails
+ *   description: Manage sender email accounts
+ */
+
+/**
+ * @swagger
+ * /emails/add:
+ *   post:
+ *     summary: Add a new email account
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Email added successfully
+ *       400:
+ *         description: Validation error or email already exists
  */
 router.post("/add", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: "All fields are required." });
     }
@@ -21,17 +56,14 @@ router.post("/add", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid email address." });
     }
 
-    // Check if email already exists for this user
     const existingEmail = await Email.findOne({ email, user: req.user._id });
     if (existingEmail) {
       return res.status(400).json({ success: false, message: "This email is already registered." });
     }
 
-    // Create and save
     const newEmail = new Email({ name, email, password, user: req.user._id });
     await newEmail.save();
 
-    // Remove password from response
     const { password: _, ...emailResponse } = newEmail.toObject();
 
     return res.status(201).json({
@@ -46,7 +78,16 @@ router.post("/add", async (req, res) => {
 });
 
 /**
- * ✅ Get all emails for the logged-in user
+ * @swagger
+ * /emails:
+ *   get:
+ *     summary: Get all emails for the authenticated user
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of emails
  */
 router.get("/", async (req, res) => {
   try {
@@ -59,7 +100,37 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * ✅ Update email details
+ * @swagger
+ * /emails/update/{id}:
+ *   put:
+ *     summary: Update a specific email
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         description: Email ID to update
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Email updated successfully
+ *       404:
+ *         description: Email not found or unauthorized
  */
 router.put("/update/:id", async (req, res) => {
   try {
@@ -98,7 +169,25 @@ router.put("/update/:id", async (req, res) => {
 });
 
 /**
- * ✅ Delete an email
+ * @swagger
+ * /emails/delete/{id}:
+ *   delete:
+ *     summary: Delete a specific email
+ *     tags: [Emails]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         description: Email ID to delete
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Email deleted successfully
+ *       404:
+ *         description: Email not found or unauthorized
  */
 router.delete("/delete/:id", async (req, res) => {
   try {
