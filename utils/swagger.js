@@ -15,14 +15,13 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:8081/api",
-        description: "Local development server",
+        url: "https://arc-connect-backend-aaemf7ash8fvhwhu.centralindia-01.azurewebsites.net/api",
+        description: "Azure Production Server",
       },
-      // Optional: Add production or staging server here
-      // {
-      //   url: "https://api.yourdomain.com",
-      //   description: "Production server",
-      // },
+      {
+        url: "http://localhost:8081/api",
+        description: "Local Development Server",
+      },
     ],
     tags: [
       { name: "Auth", description: "Authentication & Authorization" },
@@ -45,7 +44,7 @@ const options = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ["./routes/**/*.js"], // Glob for all annotated routes
+  apis: ["./routes/**/*.js"], 
 };
 
 const swaggerSpec = swaggerJsdoc(options);
