@@ -8,9 +8,22 @@ const { dbConnect } = require("./config/dbconnection");
 
 const app = express();
 
-// Swagger Setup
-const swaggerUi = require("swagger-ui-express");
-const swaggerSpec = require("./utils/swagger");
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./utils/swagger');
+
+app.get('/api/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+app.use(
+  '/api/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerUrl: '/api/api-docs/swagger.json',
+  })
+);
+
 
 // Winston Logger with Loki
 const winston = require("winston");
@@ -67,13 +80,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Swagger Documentation Route
-app.get("/api/api-docs/swagger.json", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.send(swaggerSpec);
-});
-
-app.use("/api/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Prometheus Metrics Endpoint
 app.get("/metrics", async (req, res) => {

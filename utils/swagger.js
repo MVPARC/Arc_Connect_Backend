@@ -1,4 +1,5 @@
 const swaggerJsdoc = require("swagger-jsdoc");
+const path = require("path");
 
 const options = {
   definition: {
@@ -23,34 +24,8 @@ const options = {
         description: "Local Development Server",
       },
     ],
-    tags: [
-      { name: "Auth", description: "Authentication & Authorization" },
-      { name: "Users", description: "User profile and subscription" },
-      { name: "Templates", description: "Email templates management" },
-      { name: "Recipients", description: "Recipient lists & uploads" },
-      { name: "Campaigns", description: "Email campaigns" },
-      { name: "Reports", description: "Analytics and reports" },
-      { name: "Tracking", description: "Open & click tracking" },
-      { name: "Storage", description: "Image & file uploads" },
-    ],
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-          bearerFormat: "JWT",
-        },
-      },
-    },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
   },
-
-  // ✅ Ensure correct path resolution regardless of working directory
-  apis: [__dirname + "/../routes/*.js"],
+  apis: [path.join(__dirname, "../routes/*.js")], // ✅ Correct absolute path
 };
 
 const swaggerSpec = swaggerJsdoc(options);
