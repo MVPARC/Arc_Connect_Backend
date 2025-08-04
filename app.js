@@ -16,13 +16,8 @@ app.get('/api/api-docs/swagger.json', (req, res) => {
   res.send(swaggerSpec);
 });
 
-app.use(
-  '/api/api-docs',
-  swaggerUi.serve,
-  swaggerUi.setup(null, {
-    swaggerUrl: '/api/api-docs/swagger.json',
-  })
-);
+app.use('/api/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 
 // Winston Logger with Loki
