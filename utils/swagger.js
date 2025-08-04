@@ -6,11 +6,11 @@ const options = {
     info: {
       title: "Email Marketing API",
       version: "1.0.0",
-      description: "RESTful API documentation for your Email Marketing backend",
+      description: "RESTful API documentation for the Email Marketing backend",
       contact: {
-        name: "Your Team Name",
-        email: "support@yourdomain.com",
-        url: "https://yourdomain.com",
+        name: "Arc Connect Team",
+        email: "support@arcconnect.com",
+        url: "https://arcconnect.com",
       },
     },
     servers: [
@@ -42,9 +42,15 @@ const options = {
         },
       },
     },
-    security: [{ bearerAuth: [] }],
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
   },
-  apis: ["./routes/**/*.js"], 
+
+  // ✅ Ensure correct path resolution regardless of working directory
+  apis: [__dirname + "/../routes/*.js"],
 };
 
 const swaggerSpec = swaggerJsdoc(options);
