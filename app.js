@@ -13,7 +13,19 @@ const LokiTransport = require("winston-loki");
 try {
   const swaggerUi = require('swagger-ui-express');
   const swaggerSpec = require('./utils/swagger');
-  app.use('/api/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get('/api/api-docs/swagger.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+  app.use(
+  '/api/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerUrl: '/api/api-docs/swagger.json',
+  })
+);
+
 } catch (err) {
   console.error("Swagger failed to load:", err.message);
 }
