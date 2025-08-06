@@ -8,17 +8,20 @@ const { dbConnect } = require("./config/dbconnection");
 
 const app = express();
 
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./utils/swagger');
+//const swaggerUi = require('swagger-ui-express');
+//const swaggerSpec = require('./utils/swagger');
 
-app.get('/api/api-docs/swagger.json', (req, res) => {
+// ✅ Log the Swagger spec
+//console.log("✅ Swagger Spec Generated Successfully");
+//console.log(JSON.stringify(swaggerSpec, null, 2));
+
+/*app.get('/api/api-docs/swagger.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
 
-app.use('/api/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
-
+// ✅ Setup Swagger UI with direct spec
+app.use('/api/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));*/
 
 // Winston Logger with Loki
 const winston = require("winston");
