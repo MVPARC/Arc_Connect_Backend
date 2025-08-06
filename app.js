@@ -8,20 +8,16 @@ const { dbConnect } = require("./config/dbconnection");
 
 const app = express();
 
-//const swaggerUi = require('swagger-ui-express');
-//const swaggerSpec = require('./utils/swagger');
+// ✅ Swagger Setup
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./utils/swagger");
 
-// ✅ Log the Swagger spec
-//console.log("✅ Swagger Spec Generated Successfully");
-//console.log(JSON.stringify(swaggerSpec, null, 2));
-
-/*app.get('/api/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
+app.get("/api/api-docs/swagger.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   res.send(swaggerSpec);
 });
 
-// ✅ Setup Swagger UI with direct spec
-app.use('/api/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));*/
+app.use("/api/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Winston Logger with Loki
 const winston = require("winston");
@@ -61,14 +57,24 @@ app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: "500mb" }));
 app.use(bodyParser.json({ limit: "500mb" }));
-app.use(bodyParser.urlencoded({ limit: "500mb", extended: true, parameterLimit: 50000000 }));
+app.use(
+  bodyParser.urlencoded({
+    limit: "500mb",
+    extended: true,
+    parameterLimit: 50000000,
+  })
+);
 app.use(passport.initialize());
 
 // Prometheus + Logging Middleware
 app.use((req, res, next) => {
   const end = httpRequestDurationMicroseconds.startTimer();
   res.on("finish", () => {
-    end({ method: req.method, route: req.originalUrl, status_code: res.statusCode });
+    end({
+      method: req.method,
+      route: req.originalUrl,
+      status_code: res.statusCode,
+    });
     logger.info(`${req.method} ${req.originalUrl} ${res.statusCode}`, {
       method: req.method,
       route: req.originalUrl,
@@ -77,7 +83,6 @@ app.use((req, res, next) => {
   });
   next();
 });
-
 
 // Prometheus Metrics Endpoint
 app.get("/metrics", async (req, res) => {
@@ -138,7 +143,9 @@ const startServer = async () => {
       console.log(`Your server is running on port: ${PORT}`);
     });
   } catch (error) {
-    logger.error("Failed to connect to the database", { error: error.message });
+    logger.error("Failed to connect to the database", {
+      error: error.message,
+    });
     console.error("Failed to connect to the database", error);
     process.exit(1);
   }
