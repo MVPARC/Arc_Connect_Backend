@@ -1,3 +1,4 @@
+// /utils/swagger.js or /config/swagger.js
 const swaggerJsdoc = require("swagger-jsdoc");
 const path = require("path");
 
@@ -25,7 +26,7 @@ const options = {
       },
     ],
   },
-  apis: [path.join(__dirname, "../routes/*.js")], // ✅ Correct absolute path
+  apis: [path.resolve(__dirname, "../routes/*.js")],
 };
 
 const swaggerSpec = swaggerJsdoc(options);

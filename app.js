@@ -19,7 +19,7 @@ app.get("/api/api-docs/swagger.json", (req, res) => {
 
 app.use("/api/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Winston Logger with Loki
+// ✅ Winston Logger with Loki
 const winston = require("winston");
 const LokiTransport = require("winston-loki");
 
@@ -39,7 +39,7 @@ const logger = winston.createLogger({
   ],
 });
 
-// Prometheus Setup
+// ✅ Prometheus Setup
 const client = require("prom-client");
 const register = new client.Registry();
 client.collectDefaultMetrics({ register });
@@ -52,7 +52,7 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 });
 register.registerMetric(httpRequestDurationMicroseconds);
 
-// Global Middleware
+// ✅ Global Middleware
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json({ limit: "500mb" }));
@@ -66,7 +66,7 @@ app.use(
 );
 app.use(passport.initialize());
 
-// Prometheus + Logging Middleware
+// ✅ Prometheus + Logging Middleware
 app.use((req, res, next) => {
   const end = httpRequestDurationMicroseconds.startTimer();
   res.on("finish", () => {
@@ -84,13 +84,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Prometheus Metrics Endpoint
+// ✅ Prometheus Metrics Endpoint
 app.get("/metrics", async (req, res) => {
   res.setHeader("Content-Type", register.contentType);
   res.send(await register.metrics());
 });
 
-// Root & Health Check
+// ✅ Root & Health Check
 app.get("/", (req, res) => {
   res.send("Backend is running! API is live.");
 });
@@ -99,7 +99,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
-// Import Routes
+// ✅ Import Routes
 const campaignRoutes = require("./routes/campaignRoutes");
 const emailTemplateRoutes = require("./routes/emailTemplateRoute");
 const reportRoutes = require("./routes/reportRoute");
@@ -110,7 +110,7 @@ const recipientRoutes = require("./routes/recipientRoutes");
 const imageRoutes = require("./routes/imageRoutes");
 const arcDeckRoutes = require("./routes/arcDeckRoutes");
 
-// Use Routes
+// ✅ Use Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/email-templates", emailTemplateRoutes);
@@ -121,19 +121,19 @@ app.use("/api/recipients", recipientRoutes);
 app.use("/api/images", imageRoutes);
 app.use("/api/v1/arcdeck", arcDeckRoutes);
 
-// 404 Handler
+// ✅ 404 Handler
 app.use((req, res) => {
   res.status(404).send("Sorry, that route doesn't exist.");
 });
 
-// Error Handler
+// ✅ Error Handler
 app.use((err, req, res, next) => {
   logger.error("Internal Server Error", { error: err.stack });
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
 });
 
-// Start Server
+// ✅ Start Server
 const startServer = async () => {
   try {
     await dbConnect();
