@@ -9,7 +9,7 @@ const { dbConnect } = require("./config/dbconnection");
 const app = express();
 
 // ✅ Swagger Setup
-const swaggerUi = require("swagger-ui-express");
+/*const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./utils/swagger");
 
 app.get("/api/api-docs/swagger.json", (req, res) => {
@@ -17,7 +17,7 @@ app.get("/api/api-docs/swagger.json", (req, res) => {
   res.send(swaggerSpec);
 });
 
-app.use("/api/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));*/
 
 // ✅ Winston Logger with Loki
 const winston = require("winston");
