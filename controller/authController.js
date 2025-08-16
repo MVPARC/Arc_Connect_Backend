@@ -110,87 +110,55 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 
 // ========== Auth Controller ==========
 const authController = {
- register: async (req, res) => {
+register: async (req, res) => {
   try {
-    const {
-      username,
-      email,
-      password,
-      organizationName,
-      organizationDomain,
-      organizationAddress,
-    } = req.body;
+    const { username, email, password, organizationName, organizationDomain, organizationAddress } = req.body;
 
-    // Check if email or username already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }],
-    });
-
-    if (existingUser) {
-      const conflicts = [];
-      if (existingUser.email === email) conflicts.push("email");
-      if (existingUser.username === username) conflicts.push("username");
-
-      return res.status(400).json({
-        error: `${conflicts.join(" and ")} already registered`,
-      });
+    // 1. Check OTP verification
+    const otpDoc = await OTP.findOne({ email, verified: true });
+    if (!otpDoc) {
+      return res.status(400).json({ error: "Please verify your email with OTP before registering" });
     }
 
-    // Check or create organization
-    let org = await Organization.findOne({
-      $or: [{ name: organizationName }, { domain: organizationDomain }],
-    });
+    // 2. Check if user already exists
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(400).json({ error: "Username or Email already exists" });
+    }
 
+    // 3. Find or create organization
+    let org = await Organization.findOne({ name: organizationName });
     if (!org) {
       org = new Organization({
         name: organizationName,
         domain: organizationDomain,
         address: organizationAddress,
+        contactEmail: email
       });
       await org.save();
     }
 
-    // Hash password
+    // 4. Create user
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
-      organization: org._id,
-      isVerified: false,
+      organization: org._id
     });
     await newUser.save();
 
-    // Set createdBy if first user
-    if (!org.createdBy) {
-      org.createdBy = newUser._id;
-      await org.save();
-    }
+    // 5. Delete OTP after successful registration
+    await OTP.deleteOne({ _id: otpDoc._id });
 
-    // Generate and send OTP
-    const otp = generateOTP();
-    await new OTP({ email, otp }).save();
-    await sendOTPEmail(email, otp);
-
-    logger.info(`User registered: ${username}, email: ${email}`);
-    res.status(201).json({
-      message: "User registered successfully. Please verify your email.",
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        organization: org.name,
-      },
-    });
-  } catch (err) {
-    logger.error("Register error", { error: err });
-    res.status(500).json({ error: "Server error during registration" });
+    res.status(201).json({ message: "User registered successfully", userId: newUser._id });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({ error: "Server error" });
   }
 },
 
-  // (rest of the unchanged methods below...)
+
 
   login: async (req, res) => {
     try {
@@ -237,26 +205,7 @@ const authController = {
     }
   },
 
-  verifyOTP: async (req, res) => {
-    try {
-      const { email, otp } = req.body;
-      const otpDoc = await OTP.findOne({ email, otp });
-      if (!otpDoc) {
-        logger.warn(`OTP verification failed for ${email}`);
-        return res.status(400).json({ error: "Invalid or expired OTP" });
-      }
-
-      await User.updateOne({ email }, { isVerified: true });
-      await OTP.deleteOne({ _id: otpDoc._id });
-
-      logger.info(`Email verified: ${email}`);
-      res.json({ message: "Email verified successfully" });
-    } catch (error) {
-      logger.error("OTP verification error", { error });
-      res.status(500).json({ error: "Verification failed" });
-    }
-  },
-
+  
   resendOTP: async (req, res) => {
     try {
       const { email } = req.body;
@@ -297,6 +246,55 @@ const authController = {
       res.status(500).json({ error: "Failed to process forgot password request" });
     }
   },
+
+  requestEmailVerification: async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+    await OTP.deleteOne({ email }); // Remove old OTP if exists
+    await new OTP({ email, otp }).save();
+
+    await sendOTPEmail(email, otp);
+    logger.info(`Verification OTP sent to ${email}`);
+
+    res.json({ message: "OTP sent to email. Please verify." });
+  } catch (error) {
+    logger.error("Email verification request error", { error });
+    res.status(500).json({ error: "Failed to send OTP" });
+  }
+},
+
+
+  verifyEmailOTP: async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const otpDoc = await OTP.findOne({ email, otp });
+    if (!otpDoc) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    otpDoc.verified = true;  
+    await otpDoc.save();  // Keep OTP until registration
+
+    logger.info(`Email verified (pre-registration): ${email}`);
+    res.json({ 
+      message: "Email verified. Proceed with registration.",
+      emailVerified: true
+    });
+  } catch (error) {
+    logger.error("Email OTP verification error", { error });
+    res.status(500).json({ error: "Verification failed" });
+  }
+},
+
 
   resetPassword: async (req, res) => {
     try {

@@ -79,6 +79,33 @@ router.post("/login", [
 
 /**
  * @swagger
+ * /auth/request-email-verification:
+ *   post:
+ *     summary: Request email verification OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email verification OTP sent
+ *       400:
+ *         description: Invalid email
+ */
+router.post("/request-email-verification", [
+  body("email").isEmail().normalizeEmail(),
+], authController.requestEmailVerification);
+
+/**
+ * @swagger
  * /auth/verify-otp:
  *   post:
  *     summary: Verify OTP for user registration
@@ -99,7 +126,7 @@ router.post("/login", [
  *       200:
  *         description: OTP verified
  */
-router.post("/verify-otp", authController.verifyOTP);
+router.post("/verify-email-otp", authController.verifyEmailOTP);
 
 /**
  * @swagger
