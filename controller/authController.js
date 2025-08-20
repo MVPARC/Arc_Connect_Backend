@@ -273,27 +273,36 @@ register: async (req, res) => {
 },
 
 
-  verifyEmailOTP: async (req, res) => {
+ verifyEmailOTP: async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    const otpDoc = await OTP.findOne({ email, otp });
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ error: "OTP is required" });
+    }
+
+    // find OTP record by otp only
+    const otpDoc = await OTP.findOne({ otp });
     if (!otpDoc) {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
-    otpDoc.verified = true;  
-    await otpDoc.save();  // Keep OTP until registration
+    // mark it verified
+    otpDoc.verified = true;
+    await otpDoc.save();
 
-    logger.info(`Email verified (pre-registration): ${email}`);
-    res.json({ 
+    logger.info(`Email verified (pre-registration): ${otpDoc.email}`);
+
+    res.json({
       message: "Email verified. Proceed with registration.",
-      emailVerified: true
+      emailVerified: true,
+      email: otpDoc.email, // return email so frontend knows which one got verified
     });
   } catch (error) {
     logger.error("Email OTP verification error", { error });
     res.status(500).json({ error: "Verification failed" });
   }
 },
+
 
 
   resetPassword: async (req, res) => {
