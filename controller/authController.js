@@ -112,90 +112,69 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 const authController = {
 register: async (req, res) => {
   try {
-    const {
-      username,
-      password,
-      organizationName,
-      organizationDomain,
-      organizationAddress,
-      tempToken
-    } = req.body;
+    const { username, password, organizationName, organizationDomain, organizationAddress, tempToken } = req.body;
 
     if (!tempToken) {
       return res.status(400).json({ error: "Missing verification token" });
     }
 
-    // ✅ Verify tempToken (short-lived JWT issued after OTP verification)
+    // Verify tempToken (short-lived JWT issued during OTP verification)
     let decoded;
     try {
       decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
     } catch (err) {
-      return res
-        .status(400)
-        .json({ error: "Invalid or expired token. Please verify your email again." });
+      return res.status(400).json({ error: "Invalid or expired token. Please verify your email again." });
     }
 
-    // Ensure token was for email verification
     if (decoded.purpose !== "email_verification") {
       return res.status(400).json({ error: "Invalid token purpose" });
     }
 
-    const email = decoded.email; // ✅ trusted email from token
+    const email = decoded.email;
 
-    // 1. Check if user already exists
+    // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
     if (existingUser) {
       return res.status(400).json({ error: "Username or Email already exists" });
     }
 
-    // 2. Find or create organization
+    // Find or create organization
     let org = await Organization.findOne({ name: organizationName });
     if (!org) {
       org = new Organization({
         name: organizationName,
         domain: organizationDomain,
         address: organizationAddress,
-        contactEmail: email
+        contactEmail: email,
       });
       await org.save();
     }
 
-    // 3. Create user
+    // Create user
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
       organization: org._id,
-      role: "user"
     });
     await newUser.save();
 
-    // 4. Clean OTPs for that email
+    // Delete OTP records for that email
     await OTP.deleteMany({ email });
 
-    // 5. Issue final auth token
-    const authToken = jwt.sign(
-      { userId: newUser._id, email: newUser.email, orgId: org._id, role: newUser.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    logger.info(`User registered: ${newUser.email}`);
 
-    return res.status(201).json({
-      message: "User registered successfully",
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role
-      },
-      token: authToken
+    // Do NOT log in automatically — just confirm registration
+    res.status(201).json({
+      message: "User registered successfully. Please log in.",
     });
   } catch (error) {
-    console.error("Register error:", error);
-    return res.status(500).json({ error: "Registration failed. Please try again." });
+    logger.error("Register error", { error });
+    res.status(500).json({ error: "Server error during registration" });
   }
 },
+
 
   login: async (req, res) => {
     try {
