@@ -112,28 +112,10 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 const authController = {
 register: async (req, res) => {
   try {
-    const { username, password, organizationName, organizationDomain, organizationAddress, tempToken } = req.body;
-
-    if (!tempToken) {
-      return res.status(400).json({ error: "Missing verification token" });
-    }
-
-    // Verify tempToken (short-lived JWT issued during OTP verification)
-    let decoded;
-    try {
-      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
-    } catch (err) {
-      return res.status(400).json({ error: "Invalid or expired token. Please verify your email again." });
-    }
-
-    if (decoded.purpose !== "email_verification") {
-      return res.status(400).json({ error: "Invalid token purpose" });
-    }
-
-    const email = decoded.email;
+    const { username, password, organizationName, organizationDomain, organizationAddress } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    const existingUser = await User.findOne({ $or: [{ username }, { email: req.body.email }] });
     if (existingUser) {
       return res.status(400).json({ error: "Username or Email already exists" });
     }
@@ -145,35 +127,36 @@ register: async (req, res) => {
         name: organizationName,
         domain: organizationDomain,
         address: organizationAddress,
-        contactEmail: email,
+        contactEmail: req.body.email,
       });
       await org.save();
     }
 
-    // Create user
+    // Create user (already verified via OTP)
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       username,
-      email,
+      email: req.body.email,
       password: hashedPassword,
       organization: org._id,
+      isVerified: true, // ✅ ensure verified
     });
     await newUser.save();
 
     // Delete OTP records for that email
-    await OTP.deleteMany({ email });
+    await OTP.deleteMany({ email: req.body.email });
 
     logger.info(`User registered: ${newUser.email}`);
 
-    // Do NOT log in automatically — just confirm registration
     res.status(201).json({
-      message: "User registered successfully. Please log in.",
+      message: "User registered successfully. You can now log in.",
     });
   } catch (error) {
     logger.error("Register error", { error });
     res.status(500).json({ error: "Server error during registration" });
   }
 },
+
 
 
   login: async (req, res) => {
@@ -302,31 +285,39 @@ verifyEmailOTP: async (req, res) => {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
-    // mark it verified
+    // mark OTP as verified
     otpDoc.verified = true;
     await otpDoc.save();
 
-    // ✅ generate a short-lived temp token
+    // mark user as verified if exists
+    const user = await User.findOne({ email: otpDoc.email });
+    if (user && !user.isVerified) {
+      user.isVerified = true;
+      await user.save();
+    }
+
+    // generate a short-lived temp token (optional)
     const tempToken = jwt.sign(
       { email: otpDoc.email, purpose: "email_verification" },
       process.env.JWT_SECRET,
       { expiresIn: "15m" } // short lifetime
     );
 
-    // ✅ Optionally delete OTP since token replaces it
+    // delete OTP since token replaces it
     await OTP.deleteOne({ _id: otpDoc._id });
 
     res.json({
-      message: "Email verified. Proceed with registration.",
+      message: "Email verified. You can now log in.",
       emailVerified: true,
       email: otpDoc.email,
-      tempToken // 👈 send to frontend
+      tempToken
     });
   } catch (error) {
     logger.error("Email OTP verification error", { error });
     res.status(500).json({ error: "Verification failed" });
   }
 },
+
 
 
 
