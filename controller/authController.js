@@ -157,23 +157,36 @@ register: async (req, res) => {
       username,
       email, // 👈 comes from verified token
       password: hashedPassword,
-      organization: org._id
+      organization: org._id,
+      role: "Admin" // 🔥 default role for first user of org (optional)
     });
     await newUser.save();
 
-    // 5. Optionally: delete OTP record for that email
+    // 5. Clean up OTPs
     await OTP.deleteMany({ email });
 
-    // 6. Issue final auth token
+    // 6. Issue final auth token (7d validity)
     const authToken = jwt.sign(
-      { userId: newUser._id, email: newUser.email, orgId: org._id },
+      { userId: newUser._id, email: newUser.email, orgId: org._id, role: newUser.role }, // 🔥 added role + orgId
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
+    // 🔥 Standardized response (same format as /login)
     res.status(201).json({
       message: "User registered successfully",
-      user: { id: newUser._id, username: newUser.username, email: newUser.email, role: newUser.role },
+      user: {
+        id: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        role: newUser.role,
+        organization: {
+          id: org._id,
+          name: org.name,
+          domain: org.domain,
+          address: org.address
+        }
+      },
       token: authToken
     });
   } catch (error) {
@@ -181,8 +194,6 @@ register: async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 },
-
-
 
   login: async (req, res) => {
     try {
