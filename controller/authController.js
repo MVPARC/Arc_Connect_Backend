@@ -112,13 +112,15 @@ const sendPasswordResetEmail = async (email, resetToken) => {
 const authController = {
 register: async (req, res) => {
   try {
-    const { username, email, password, organizationName, organizationDomain, organizationAddress } = req.body;
+    const { username, password, organizationName, organizationDomain, organizationAddress, tempToken } = req.body;
 
-    // 1. Check OTP verification
-    const otpDoc = await OTP.findOne({ email, verified: true });
+    // 1. Validate tempToken → should be issued at /verify-email-otp
+    const otpDoc = await OTP.findOne({ tempToken, verified: true });
     if (!otpDoc) {
-      return res.status(400).json({ error: "Please verify your email with OTP before registering" });
+      return res.status(400).json({ error: "Invalid or expired token. Please verify your email with OTP again." });
     }
+
+    const email = otpDoc.email; // ✅ take email only from verified OTP
 
     // 2. Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
@@ -142,7 +144,7 @@ register: async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       username,
-      email,
+      email, // 👈 verified email
       password: hashedPassword,
       organization: org._id
     });
