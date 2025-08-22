@@ -114,13 +114,24 @@ register: async (req, res) => {
   try {
     const { username, password, organizationName, organizationDomain, organizationAddress, tempToken } = req.body;
 
-    // 1. Validate tempToken → should be issued at /verify-email-otp
-    const otpDoc = await OTP.findOne({ tempToken, verified: true });
-    if (!otpDoc) {
-      return res.status(400).json({ error: "Invalid or expired token. Please verify your email with OTP again." });
+    if (!tempToken) {
+      return res.status(400).json({ error: "Missing verification token" });
     }
 
-    const email = otpDoc.email; // ✅ take email only from verified OTP
+    // ✅ Verify tempToken (short-lived JWT issued during OTP verification)
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid or expired token. Please verify your email again." });
+    }
+
+    // Ensure token was created for email verification
+    if (decoded.purpose !== "email_verification") {
+      return res.status(400).json({ error: "Invalid token purpose" });
+    }
+
+    const email = decoded.email; // ✅ trusted email from token
 
     // 2. Check if user already exists
     const existingUser = await User.findOne({ $or: [{ username }, { email }] });
@@ -144,16 +155,27 @@ register: async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       username,
-      email, // 👈 verified email
+      email, // 👈 comes from verified token
       password: hashedPassword,
       organization: org._id
     });
     await newUser.save();
 
-    // 5. Delete OTP after successful registration
-    await OTP.deleteOne({ _id: otpDoc._id });
+    // 5. Optionally: delete OTP record for that email
+    await OTP.deleteMany({ email });
 
-    res.status(201).json({ message: "User registered successfully", userId: newUser._id });
+    // 6. Issue final auth token
+    const authToken = jwt.sign(
+      { userId: newUser._id, email: newUser.email, orgId: org._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
+      message: "User registered successfully",
+      user: { id: newUser._id, username: newUser.username, email: newUser.email, role: newUser.role },
+      token: authToken
+    });
   } catch (error) {
     console.error("Register error:", error);
     res.status(500).json({ error: "Server error" });
@@ -275,14 +297,14 @@ register: async (req, res) => {
 },
 
 
- verifyEmailOTP: async (req, res) => {
+verifyEmailOTP: async (req, res) => {
   try {
     const { otp } = req.body;
     if (!otp) {
       return res.status(400).json({ error: "OTP is required" });
     }
 
-    // find OTP record by otp only
+    // find OTP record
     const otpDoc = await OTP.findOne({ otp });
     if (!otpDoc) {
       return res.status(400).json({ error: "Invalid or expired OTP" });
@@ -292,12 +314,21 @@ register: async (req, res) => {
     otpDoc.verified = true;
     await otpDoc.save();
 
-    logger.info(`Email verified (pre-registration): ${otpDoc.email}`);
+    // ✅ generate a short-lived temp token
+    const tempToken = jwt.sign(
+      { email: otpDoc.email, purpose: "email_verification" },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" } // short lifetime
+    );
+
+    // ✅ Optionally delete OTP since token replaces it
+    await OTP.deleteOne({ _id: otpDoc._id });
 
     res.json({
       message: "Email verified. Proceed with registration.",
       emailVerified: true,
-      email: otpDoc.email, // return email so frontend knows which one got verified
+      email: otpDoc.email,
+      tempToken // 👈 send to frontend
     });
   } catch (error) {
     logger.error("Email OTP verification error", { error });
